@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper to check if user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Helper to check if user is the author
+    function isAuthor(resource) {
+      return request.auth.uid == resource.data.authorId;
+    }
+
+    // Threads collection
+    match /threads/{threadId} {
+      allow read: if true; // Anyone can read threads
+      allow create: if isSignedIn(); // Logged in users can create
+      allow update: if isSignedIn() && (isAuthor(resource) || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])); // Author can edit, anyone can like (if we use simple increment)
+      allow delete: if isSignedIn() && isAuthor(resource); // Only author can delete
+    }
+
+    // Comments collection
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && isAuthor(resource);
+      allow delete: if isSignedIn() && isAuthor(resource);
+    }
+
+    // Blogs collection
+    match /blogs/{blogId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && isAuthor(resource);
+      allow delete: if isSignedIn() && isAuthor(resource);
+    }
+  }
+}
