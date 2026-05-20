@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 const AuthForm: React.FC<{ type: 'login' | 'signup' }> = ({ type }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const { signIn, signUp, error, loading } = useAuthActions();
   const navigate = useNavigate();
 
@@ -13,7 +14,7 @@ const AuthForm: React.FC<{ type: 'login' | 'signup' }> = ({ type }) => {
     if (type === 'login') {
       await signIn(email, password);
     } else {
-      await signUp(email, password);
+      await signUp(email, password, username);
     }
     if (!error) navigate('/');
   };
@@ -25,6 +26,25 @@ const AuthForm: React.FC<{ type: 'login' | 'signup' }> = ({ type }) => {
           {type === 'login' ? 'Invoke Your Spirit' : 'Join the Pantheon'}
         </h2>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {type === 'signup' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label className="parchment-text">How shall we name you?</label>
+              <input 
+                type="text" 
+                value={username} 
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                placeholder="Ancient Name"
+                style={{ 
+                  padding: '0.75rem', 
+                  backgroundColor: 'rgba(255,255,255,0.05)', 
+                  border: '1px solid var(--border-color)',
+                  color: 'inherit',
+                  fontFamily: 'inherit'
+                }}
+              />
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <label className="parchment-text">Email Address</label>
             <input 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { XP_REWARDS } from '../utils/xpSystem';
 
 export interface Thread {
   id: string;
@@ -36,6 +37,12 @@ export const useThreads = () => {
       authorName,
       createdAt: serverTimestamp(),
       likes: 0
+    });
+
+    // Reward XP
+    const userRef = doc(db, 'users', authorId);
+    await updateDoc(userRef, {
+      xp: increment(XP_REWARDS.CREATE_THREAD)
     });
   };
 

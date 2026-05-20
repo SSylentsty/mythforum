@@ -1,16 +1,27 @@
 import { useState } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth } from '../firebase/config';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase/config';
 
 export const useAuthActions = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const signUp = async (email: string, pass: string) => {
+  const signUp = async (email: string, pass: string, username: string) => {
     setLoading(true);
     setError(null);
     try {
-      await createUserWithEmailAndPassword(auth, email, pass);
+      const res = await createUserWithEmailAndPassword(auth, email, pass);
+      if (res.user) {
+        await updateProfile(res.user, { displayName: username });
+        // Create user document in Firestore
+        await setDoc(doc(db, 'users', res.user.uid), {
+          username,
+          xp: 0,
+          bio: 'A new spirit in the Pantheon...',
+          createdAt: new Date()
+        });
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {

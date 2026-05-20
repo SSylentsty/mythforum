@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { XP_REWARDS } from '../utils/xpSystem';
 
 export interface Comment {
   id: string;
@@ -38,6 +39,12 @@ export const useComments = (threadId: string) => {
       threadId,
       parentId,
       createdAt: serverTimestamp()
+    });
+
+    // Reward XP
+    const userRef = doc(db, 'users', authorId);
+    await updateDoc(userRef, {
+      xp: increment(XP_REWARDS.ADD_COMMENT)
     });
   };
 

@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { Shield, User as UserIcon, LogOut } from 'lucide-react';
+import { Shield, User as UserIcon, LogOut, Award } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useAuthActions } from './hooks/useAuthActions';
+import { getLevelInfo } from './utils/xpSystem';
 import AuthPage from './pages/AuthPage';
 import ForumPage from './pages/ForumPage';
 import ThreadDetail from './pages/ThreadDetail';
@@ -9,6 +10,8 @@ import ProfilePage from './pages/ProfilePage';
 import ThemeToggle from './components/ThemeToggle';
 
 function Home() {
+  const { user } = useAuth();
+
   return (
     <div style={{ padding: '4rem 2rem', textAlign: 'center', maxWidth: '800px', margin: '0 auto' }}>
       <Shield size={80} style={{ color: 'var(--accent)', marginBottom: '1.5rem' }} />
@@ -18,7 +21,9 @@ function Home() {
       </p>
       <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
         <Link to="/forum" className="mythic-card" style={{ padding: '0.75rem 2.5rem', fontSize: '1.1rem' }}>Enter the Great Hall</Link>
-        <Link to="/signup" className="mythic-card" style={{ padding: '0.75rem 2.5rem', fontSize: '1.1rem', backgroundColor: 'transparent' }}>Join the Pantheon</Link>
+        {!user && (
+          <Link to="/signup" className="mythic-card" style={{ padding: '0.75rem 2.5rem', fontSize: '1.1rem', backgroundColor: 'transparent' }}>Join the Pantheon</Link>
+        )}
       </div>
       
       <div style={{ marginTop: '5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '2rem' }}>
@@ -40,8 +45,9 @@ function Home() {
 }
 
 function Navbar() {
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
   const { logout } = useAuthActions();
+  const levelInfo = userData ? getLevelInfo(userData.xp) : null;
 
   return (
     <header style={{ 
@@ -64,6 +70,24 @@ function Navbar() {
         <Link to="/forum" style={{ fontSize: '0.9rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Forum</Link>
         {user ? (
           <>
+            {levelInfo && (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.3rem', 
+                fontSize: '0.7rem', 
+                fontWeight: 'bold', 
+                color: levelInfo.color, 
+                textTransform: 'uppercase', 
+                border: `1px solid ${levelInfo.color}`, 
+                padding: '2px 8px', 
+                borderRadius: '4px',
+                backgroundColor: `${levelInfo.color}10`
+              }}>
+                <Award size={14} />
+                <span>{levelInfo.tag}</span>
+              </div>
+            )}
             <Link to="/profile" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               <UserIcon size={18} />
               <span>Profile</span>

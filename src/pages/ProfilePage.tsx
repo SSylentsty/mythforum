@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useBlogs } from '../hooks/useBlogs';
-import { User as UserIcon, BookOpen, PenTool } from 'lucide-react';
+import { User as UserIcon, BookOpen, PenTool, Award, Zap } from 'lucide-react';
 import RichTextDisplay from '../components/RichTextDisplay';
+import { getLevelInfo, LEVELS } from '../utils/xpSystem';
 
 const ProfilePage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
   const { blogs, loading, createBlog } = useBlogs(user?.uid);
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+
+  const levelInfo = userData ? getLevelInfo(userData.xp) : null;
+  const nextLevel = levelInfo ? LEVELS.find(l => l.level === levelInfo.level + 1) : null;
+  
+  const xpProgress = levelInfo && nextLevel 
+    ? ((userData!.xp - levelInfo.minXp) / (nextLevel.minXp - levelInfo.minXp)) * 100 
+    : 100;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,25 +33,75 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem 1rem' }}>
-      <div className="mythic-card" style={{ marginBottom: '3rem', display: 'flex', alignItems: 'center', gap: '2rem', padding: '2rem' }}>
+      <div className="mythic-card" style={{ marginBottom: '3rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2rem', padding: '2rem' }}>
         <div style={{ 
-          width: '100px', 
-          height: '100px', 
+          width: '120px', 
+          height: '120px', 
           borderRadius: '50%', 
           backgroundColor: 'var(--accent)', 
           display: 'flex', 
           justifyContent: 'center', 
           alignItems: 'center',
-          border: '4px solid var(--border-color)'
+          border: '4px solid var(--border-color)',
+          boxShadow: `0 0 20px ${levelInfo?.color}40`
         }}>
-          <UserIcon size={50} style={{ color: 'var(--bg-primary)' }} />
+          <UserIcon size={60} style={{ color: 'var(--bg-primary)' }} />
         </div>
-        <div>
-          <h1 style={{ marginBottom: '0.5rem' }}>{user.displayName || 'Unnamed Scholar'}</h1>
-          <p className="parchment-text" style={{ color: 'var(--text-secondary)' }}>{user.email}</p>
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-            <span className="gold-text" style={{ fontSize: '0.9rem' }}>Member since: {user.metadata.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString() : 'Ancient Times'}</span>
+        <div style={{ flex: 1, minWidth: '300px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+            <h1 style={{ margin: 0 }}>{userData?.username || user.displayName || 'Unnamed Scholar'}</h1>
+            {levelInfo && (
+              <span style={{ 
+                padding: '4px 12px', 
+                backgroundColor: `${levelInfo.color}20`, 
+                color: levelInfo.color, 
+                border: `1px solid ${levelInfo.color}`,
+                borderRadius: '20px',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
+                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}>
+                <Award size={14} />
+                {levelInfo.tag}
+              </span>
+            )}
           </div>
+          <p className="parchment-text" style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>{user.email}</p>
+          
+          {userData && levelInfo && (
+            <div style={{ marginTop: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <Zap size={14} className="gold-text" />
+                  <strong>{userData.xp}</strong> <span style={{ opacity: 0.7 }}>Experience Points</span>
+                </span>
+                {nextLevel ? (
+                  <span style={{ opacity: 0.7 }}>Next: {nextLevel.tag} ({nextLevel.minXp} XP)</span>
+                ) : (
+                  <span className="gold-text">Maximum Divinity Reached</span>
+                )}
+              </div>
+              <div style={{ 
+                width: '100%', 
+                height: '8px', 
+                backgroundColor: 'rgba(255,255,255,0.1)', 
+                borderRadius: '4px',
+                overflow: 'hidden',
+                border: '1px solid var(--border-color)'
+              }}>
+                <div style={{ 
+                  width: `${xpProgress}%`, 
+                  height: '100%', 
+                  backgroundColor: levelInfo.color,
+                  transition: 'width 1s ease-out',
+                  boxShadow: `0 0 10px ${levelInfo.color}`
+                }} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
