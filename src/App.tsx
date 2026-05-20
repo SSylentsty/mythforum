@@ -45,7 +45,7 @@ function Home() {
 }
 
 function Navbar() {
-  const { user, userData } = useAuth();
+  const { user, userData, loading } = useAuth();
   const { logout } = useAuthActions();
   const levelInfo = userData ? getLevelInfo(userData.xp) : null;
 
@@ -68,7 +68,9 @@ function Navbar() {
       <nav style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
         <Link to="/" style={{ fontSize: '0.9rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Home</Link>
         <Link to="/forum" style={{ fontSize: '0.9rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Forum</Link>
-        {user ? (
+        {loading ? (
+          <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>Identifying Spirit...</span>
+        ) : user ? (
           <>
             {levelInfo && (
               <div style={{ 

@@ -23,33 +23,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let unsubUserDoc: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       
+      // Clear previous subscription if it exists
+      if (unsubUserDoc) {
+        unsubUserDoc();
+        unsubUserDoc = null;
+      }
+
       if (currentUser) {
+        setLoading(true);
         // Subscribe to user data in Firestore
         const userDocRef = doc(db, 'users', currentUser.uid);
-        const unsubUserDoc = onSnapshot(userDocRef, (docSnap) => {
+        unsubUserDoc = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
             setUserData(docSnap.data() as UserData);
           } else {
-            // If user exists in Auth but not in Firestore yet, we'll handle it during signup/login
             setUserData(null);
           }
           setLoading(false);
+        }, (error) => {
+          console.error("Firestore subscription error:", error);
+          setLoading(false);
         });
-        return () => unsubUserDoc();
       } else {
         setUserData(null);
         setLoading(false);
       }
     });
-    return unsubscribe;
+
+    return () => {
+      unsubscribe();
+      if (unsubUserDoc) unsubUserDoc();
+    };
   }, []);
 
   return (
     <AuthContext.Provider value={{ user, userData, loading }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
