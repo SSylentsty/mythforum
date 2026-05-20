@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { XP_REWARDS } from '../utils/xpSystem';
 
@@ -41,9 +41,10 @@ export const useThreads = () => {
 
     // Reward XP
     const userRef = doc(db, 'users', authorId);
-    await updateDoc(userRef, {
-      xp: increment(XP_REWARDS.CREATE_THREAD)
-    });
+    await setDoc(userRef, {
+      xp: increment(XP_REWARDS.CREATE_THREAD),
+      username: authorName // Backfill username if doc is new
+    }, { merge: true });
   };
 
   const likeThread = async (threadId: string) => {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, increment, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { XP_REWARDS } from '../utils/xpSystem';
 
@@ -43,9 +43,10 @@ export const useComments = (threadId: string) => {
 
     // Reward XP
     const userRef = doc(db, 'users', authorId);
-    await updateDoc(userRef, {
-      xp: increment(XP_REWARDS.ADD_COMMENT)
-    });
+    await setDoc(userRef, {
+      xp: increment(XP_REWARDS.ADD_COMMENT),
+      username: authorName // Backfill username if doc is new
+    }, { merge: true });
   };
 
   return { comments, loading, addComment };
