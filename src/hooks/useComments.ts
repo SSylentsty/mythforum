@@ -22,7 +22,7 @@ export const useComments = (threadId: string) => {
     return unsubscribe;
   }, [threadId]);
 
-  const triggerXpReward = async (action: string, targetId: string) => {
+  const triggerXpReward = async (action: string) => {
     try {
       if (!auth.currentUser) return;
       const xpRules = { CREATE_THREAD: 10, ADD_COMMENT: 2, RECEIVED_UPVOTE: 5, MARKED_SOLUTION: 20 };
@@ -44,7 +44,7 @@ export const useComments = (threadId: string) => {
       throw new Error('Profanity detected. Account banned.');
     }
 
-    const docRef = await addDoc(collection(db, 'comments'), {
+    await addDoc(collection(db, 'comments'), {
       content,
       authorId,
       authorName,
@@ -60,19 +60,19 @@ export const useComments = (threadId: string) => {
     await updateDoc(threadRef, { commentCount: increment(1) });
 
     // Call Cloudflare API for XP
-    await triggerXpReward('ADD_COMMENT', docRef.id);
+    await triggerXpReward('ADD_COMMENT');
   };
 
   const likeComment = async (commentId: string) => {
     const commentRef = doc(db, 'comments', commentId);
     await updateDoc(commentRef, { upvotes: increment(1) });
-    await triggerXpReward('RECEIVED_UPVOTE', commentId);
+    await triggerXpReward('RECEIVED_UPVOTE');
   };
 
   const markAsSolution = async (commentId: string) => {
     const commentRef = doc(db, 'comments', commentId);
     await updateDoc(commentRef, { isSolution: true });
-    await triggerXpReward('MARKED_SOLUTION', commentId);
+    await triggerXpReward('MARKED_SOLUTION');
   }
 
   return { comments, loading, addComment, likeComment, markAsSolution };

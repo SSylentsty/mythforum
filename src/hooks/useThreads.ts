@@ -23,7 +23,7 @@ export const useThreads = (categoryId: string | null = null) => {
     return unsubscribe;
   }, [categoryId]);
 
-  const triggerXpReward = async (action: string, targetId: string) => {
+  const triggerXpReward = async (action: string) => {
     try {
       if (!auth.currentUser) return;
       const xpRules = { CREATE_THREAD: 10, ADD_COMMENT: 2, RECEIVED_UPVOTE: 5, MARKED_SOLUTION: 20 };
@@ -47,7 +47,7 @@ export const useThreads = (categoryId: string | null = null) => {
 
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
     
-    const docRef = await addDoc(collection(db, 'threads'), {
+    await addDoc(collection(db, 'threads'), {
       title,
       slug,
       content,
@@ -62,7 +62,7 @@ export const useThreads = (categoryId: string | null = null) => {
     });
 
     // Call Cloudflare API for XP instead of client-side Firestore update
-    await triggerXpReward('CREATE_THREAD', docRef.id);
+    await triggerXpReward('CREATE_THREAD');
   };
 
   const likeThread = async (threadId: string) => {
@@ -71,7 +71,7 @@ export const useThreads = (categoryId: string | null = null) => {
     await updateDoc(threadRef, {
       upvotes: increment(1)
     });
-    await triggerXpReward('RECEIVED_UPVOTE', threadId);
+    await triggerXpReward('RECEIVED_UPVOTE');
   };
 
   return { threads, loading, createThread, likeThread };
