@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card as CardType } from '../types';
+import type { Card as CardType } from '../types';
 
 interface DropModalProps {
   card: CardType;

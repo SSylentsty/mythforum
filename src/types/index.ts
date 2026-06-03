@@ -31,7 +31,7 @@ export interface Thread {
   tags: string[];
   upvotes: number;
   isFeatured: boolean;
-  createdAt: number;
+  createdAt: any;
   commentCount: number;
 }
 
@@ -44,7 +44,7 @@ export interface Comment {
   content: string;
   upvotes: number;
   isSolution: boolean;
-  createdAt: number;
+  createdAt: any;
 }
 
 export interface XpLog {

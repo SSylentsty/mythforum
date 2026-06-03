@@ -1,4 +1,4 @@
-import { Category } from '../types';
+import type { Category } from '../types';
 
 export const CATEGORIES: Category[] = [
   { id: 'greek', name: 'Yunan Mitolojisi', slug: 'yunan', description: 'Olympos tanrıları ve kahramanlık destanları.', icon: '🏛️' },

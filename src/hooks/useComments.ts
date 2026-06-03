@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
-import { Comment } from '../types';
+import type { Comment } from '../types';
 
 export const useComments = (threadId: string) => {
   const [comments, setComments] = useState<Comment[]>([]);

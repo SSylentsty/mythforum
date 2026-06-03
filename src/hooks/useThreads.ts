@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment, where } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
-import { Thread } from '../types';
+import type { Thread } from '../types';
 
 export const useThreads = (categoryId: string | null = null) => {
   const [threads, setThreads] = useState<Thread[]>([]);

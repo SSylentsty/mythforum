@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card as CardType, UserCard } from '../types';
+import type { Card as CardType, UserCard } from '../types';
 import DropModal from './DropModal';
 
 // Mock data for demonstration until backend drop logic is fully implemented
