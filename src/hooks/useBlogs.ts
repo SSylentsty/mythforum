@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { containsProfanity, handleProfanityViolation } from '../utils/profanityFilter';
 
 export interface BlogPost {
   id: string;
@@ -34,6 +35,10 @@ export const useBlogs = (uid?: string) => {
   }, [uid]);
 
   const createBlog = async (title: string, content: string, authorId: string, authorName: string) => {
+    if (containsProfanity(title + ' ' + content)) {
+      await handleProfanityViolation();
+      throw new Error('Profanity detected. Account banned.');
+    }
     await addDoc(collection(db, 'blogs'), {
       title,
       content,

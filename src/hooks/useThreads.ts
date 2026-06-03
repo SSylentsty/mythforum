@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment, where } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
 import type { Thread } from '../types';
+import { containsProfanity, handleProfanityViolation } from '../utils/profanityFilter';
 
 export const useThreads = (categoryId: string | null = null) => {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -40,6 +41,11 @@ export const useThreads = (categoryId: string | null = null) => {
   };
 
   const createThread = async (title: string, content: string, categoryId: string, authorId: string, authorName: string) => {
+    if (containsProfanity(title + ' ' + content)) {
+      await handleProfanityViolation();
+      throw new Error('Profanity detected. Account banned.');
+    }
+
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
     
     const docRef = await addDoc(collection(db, 'threads'), {

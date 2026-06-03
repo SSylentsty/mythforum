@@ -13,23 +13,37 @@ service cloud.firestore {
       return request.auth.uid == resource.data.authorId;
     }
 
+    // Helper to check if user is NOT banned
+    function isNotBanned() {
+      // In a real prod environment we'd check the user document. 
+      // Using exists/get requires read access which we have.
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.shadowBanned != true;
+    }
+
     // Threads collection
     match /threads/{threadId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      // Users can only update specific fields, not upvotes or isFeatured directly
-      allow update: if isSignedIn() && isAuthor(resource) 
+      allow create: if isSignedIn() && isNotBanned();
+      allow update: if isSignedIn() && isNotBanned() && isAuthor(resource) 
                     && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['upvotes', 'isFeatured', 'authorId']);
-      allow delete: if isSignedIn() && isAuthor(resource);
+      allow delete: if isSignedIn() && isNotBanned() && isAuthor(resource);
     }
 
     // Comments collection
     match /comments/{commentId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && isAuthor(resource)
+      allow create: if isSignedIn() && isNotBanned();
+      allow update: if isSignedIn() && isNotBanned() && isAuthor(resource)
                     && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['upvotes', 'isSolution', 'authorId']);
-      allow delete: if isSignedIn() && isAuthor(resource);
+      allow delete: if isSignedIn() && isNotBanned() && isAuthor(resource);
+    }
+
+    // Blogs collection (Assuming we have one, as requested)
+    match /blogs/{blogId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isNotBanned();
+      allow update: if isSignedIn() && isNotBanned() && isAuthor(resource);
+      allow delete: if isSignedIn() && isNotBanned() && isAuthor(resource);
     }
 
     // Users collection
@@ -37,7 +51,7 @@ service cloud.firestore {
       allow read: if true; 
       allow create: if isSignedIn() && request.auth.uid == userId;
       // Client CANNOT update their own XP, level, quality score, or ban status
-      allow update: if isSignedIn() && request.auth.uid == userId
+      allow update: if isSignedIn() && request.auth.uid == userId && isNotBanned()
                     && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['xp', 'level', 'qualityScore', 'shadowBanned', 'dailyXpEarned', 'lastXpReset']);
     }
 

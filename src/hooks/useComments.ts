@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
 import type { Comment } from '../types';
+import { containsProfanity, handleProfanityViolation } from '../utils/profanityFilter';
 
 export const useComments = (threadId: string) => {
   const [comments, setComments] = useState<Comment[]>([]);
@@ -39,6 +40,11 @@ export const useComments = (threadId: string) => {
   };
 
   const addComment = async (content: string, authorId: string, authorName: string, parentId: string | null = null) => {
+    if (containsProfanity(content)) {
+      await handleProfanityViolation();
+      throw new Error('Profanity detected. Account banned.');
+    }
+
     const docRef = await addDoc(collection(db, 'comments'), {
       content,
       authorId,
