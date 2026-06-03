@@ -14,6 +14,13 @@ const BAD_WORDS = [
   'amk',
   'aq',
   'oç',
+  'siktir',
+  'sik',
+  'yarrak',
+  'göt',
+  'pezevenk',
+  'orospu',
+  'orospu çocuğu',
   // Add more bad words as needed
 ];
 
