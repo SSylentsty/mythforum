@@ -12,18 +12,56 @@ const XP_RULES: Record<string, number> = {
 
 const DAILY_LIMIT = 200;
 
+// Firestore REST API helper
+async function firestoreGet(projectId: string, path: string) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  return await res.json();
+}
+
+async function firestorePatch(projectId: string, path: string, fields: Record<string, any>, updateMask: string[]) {
+  const maskParams = updateMask.map(f => `updateMask.fieldPaths=${f}`).join('&');
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}?${maskParams}`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields })
+  });
+  return res.ok;
+}
+
+async function firestoreCreate(projectId: string, collectionPath: string, fields: Record<string, any>) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionPath}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields })
+  });
+  return res.ok;
+}
+
+function parseIntegerField(doc: any, fieldName: string): number {
+  const field = doc?.fields?.[fieldName];
+  if (!field) return 0;
+  return parseInt(field.integerValue || '0', 10);
+}
+
 export async function onRequestPost(context: any) {
   const { request, env } = context;
+  const projectId = env.FIREBASE_PROJECT_ID;
+
+  if (!projectId) {
+    return new Response(JSON.stringify({ error: 'Server misconfigured: missing FIREBASE_PROJECT_ID' }), { status: 500 });
+  }
 
   try {
-    // 1. Authorization: Client'dan gelen Firebase Auth Token'ı al
+    // 1. Auth: decode JWT to get userId (simplified — production should verify signature)
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
     const token = authHeader.split('Bearer ')[1];
-    
-    // (Güvenlik notu: Production'da JWT signature Web Crypto API ile verify edilmelidir)
     const payloadBase64 = token.split('.')[1];
     const decodedPayload = JSON.parse(atob(payloadBase64));
     const userId = decodedPayload.user_id;
@@ -32,7 +70,7 @@ export async function onRequestPost(context: any) {
       return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401 });
     }
 
-    // 2. İsteği parse et
+    // 2. Parse request
     const body = await request.json();
     const { action, targetId } = body;
 
@@ -42,37 +80,85 @@ export async function onRequestPost(context: any) {
 
     const baseAmount = XP_RULES[action];
 
-    // 3. Firestore REST API İşlemleri (Cloudflare üzerinden Firestore'a bağlanma)
-    // Not: Cloudflare Workers ortamında Node.js 'firebase-admin' tam çalışmadığı için
-    // Firestore REST API (https://firestore.googleapis.com/v1/projects/...) kullanılmalıdır.
-
-    /* MANTIK (Pseudocode):
+    // 3. Get current user data from Firestore
+    const userDoc = await firestoreGet(projectId, `users/${userId}`);
     
-      1. Kullanıcı verisini çek (users/userId):
-         - Günlük XP limitini (dailyXpEarned) ve son sıfırlama (lastXpReset) zamanını kontrol et.
-         - 24 saat geçmişse dailyXpEarned = 0 yap.
-         - limit (200) aşıldıysa işlemi iptal et (Rate Limiting).
-         
-      2. Quality Score Çarpanı (Abuse Prevention):
-         - Kullanıcının qualityScore > 80 ise çarpan = 1.5x
-         - qualityScore < 20 ise çarpan = 0x (Spam cezası, XP verilmez)
-         
-      3. Veritabanına Yazma (Transaction):
-         - users koleksiyonunda 'xp' ve 'dailyXpEarned' değerlerini artır.
-         - xp_logs koleksiyonuna yeni log ekle (tarih, action, miktar, targetId).
-         
-      4. Eğer kullanıcının XP'si yeni bir seviyeye ulaştıysa veya rastgele bir drop şansı tuttuysa:
-         - Yeni bir "Mitoloji Kartı" (Card) ver ve user_cards tablosuna ekle.
-    */
+    const currentXp = parseIntegerField(userDoc, 'xp');
+    const dailyXpEarned = parseIntegerField(userDoc, 'dailyXpEarned');
+    const lastXpReset = parseIntegerField(userDoc, 'lastXpReset');
+    const shadowBanned = userDoc?.fields?.shadowBanned?.booleanValue === true;
 
-    // Simüle edilmiş başarılı yanıt
-    const finalXp = baseAmount; // Burada quality score multiplier uygulanmış hali olacak
+    // 4. Check if banned
+    if (shadowBanned) {
+      return new Response(JSON.stringify({ error: 'Account restricted' }), { status: 403 });
+    }
+
+    // 5. Daily limit check — reset if 24h passed
+    const now = Date.now();
+    let effectiveDailyXp = dailyXpEarned;
+    let newLastReset = lastXpReset;
+
+    if (now - lastXpReset > 86400000) { // 24 hours
+      effectiveDailyXp = 0;
+      newLastReset = now;
+    }
+
+    if (effectiveDailyXp + baseAmount > DAILY_LIMIT) {
+      return new Response(JSON.stringify({ 
+        error: 'Daily XP limit reached', 
+        dailyXpEarned: effectiveDailyXp,
+        limit: DAILY_LIMIT 
+      }), { status: 429 });
+    }
+
+    // 6. Calculate final XP
+    const newXp = currentXp + baseAmount;
+    const newDailyXp = effectiveDailyXp + baseAmount;
+
+    // 7. Write updated user data to Firestore
+    const updateSuccess = await firestorePatch(projectId, `users/${userId}`, {
+      xp: { integerValue: String(newXp) },
+      dailyXpEarned: { integerValue: String(newDailyXp) },
+      lastXpReset: { integerValue: String(newLastReset) }
+    }, ['xp', 'dailyXpEarned', 'lastXpReset']);
+
+    if (!updateSuccess) {
+      return new Response(JSON.stringify({ error: 'Failed to update user XP' }), { status: 500 });
+    }
+
+    // 8. Write XP log
+    await firestoreCreate(projectId, 'xp_logs', {
+      userId: { stringValue: userId },
+      action: { stringValue: action },
+      amount: { integerValue: String(baseAmount) },
+      targetId: { stringValue: targetId || '' },
+      timestamp: { integerValue: String(now) }
+    });
+
+    // 9. Card drop chance (10% on CREATE_THREAD, 3% on ADD_COMMENT)
+    let cardDropped = false;
+    const dropChance = action === 'CREATE_THREAD' ? 0.10 : action === 'ADD_COMMENT' ? 0.03 : 0;
+    
+    if (dropChance > 0 && Math.random() < dropChance) {
+      cardDropped = true;
+      // Pick a random card ID (c1-c7 from our predefined set)
+      const cardIds = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
+      const randomCardId = cardIds[Math.floor(Math.random() * cardIds.length)];
+      
+      await firestoreCreate(projectId, 'user_cards', {
+        userId: { stringValue: userId },
+        cardId: { stringValue: randomCardId },
+        quantity: { integerValue: '1' },
+        acquiredAt: { integerValue: String(now) }
+      });
+    }
 
     return new Response(JSON.stringify({ 
       success: true, 
       action,
-      xpGranted: finalXp,
-      message: 'XP başarıyla eklendi (Server-Side validation passed).'
+      xpGranted: baseAmount,
+      newTotalXp: newXp,
+      cardDropped
     }), {
       headers: { 'Content-Type': 'application/json' }
     });

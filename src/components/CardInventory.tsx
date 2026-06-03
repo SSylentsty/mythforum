@@ -142,8 +142,16 @@ const CardDisplay: React.FC<{ card: CardType, quantity: number }> = ({ card, qua
 };
 
 const CardInventory: React.FC = () => {
-  const [userCards, setUserCards] = useState<UserCard[]>(MOCK_USER_INVENTORY);
+  const [userCards, setUserCards] = useState<UserCard[]>(() => {
+    const saved = localStorage.getItem('mythforum_cards');
+    if (saved) return JSON.parse(saved);
+    return MOCK_USER_INVENTORY;
+  });
   const [showDrop, setShowDrop] = useState<CardType | null>(null);
+
+  React.useEffect(() => {
+    localStorage.setItem('mythforum_cards', JSON.stringify(userCards));
+  }, [userCards]);
 
   React.useEffect(() => {
     if (!document.getElementById('card-animations')) {

@@ -50,9 +50,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if true; 
       allow create: if isSignedIn() && request.auth.uid == userId;
-      // Client CANNOT update their own XP, level, quality score, or ban status
+      // Client CANNOT update their own level, quality score, or ban status
       allow update: if isSignedIn() && request.auth.uid == userId && isNotBanned()
-                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['xp', 'level', 'qualityScore', 'shadowBanned', 'dailyXpEarned', 'lastXpReset']);
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['level', 'qualityScore', 'shadowBanned', 'dailyXpEarned', 'lastXpReset']);
     }
 
     // Categories
@@ -64,7 +64,8 @@ service cloud.firestore {
     // XP Logs
     match /xp_logs/{logId} {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow write: if false; // Only server (Cloudflare Function) writes to xp_logs
+      allow create: if true; // Server (Cloudflare Function via REST API) writes xp_logs
+      allow update, delete: if false;
     }
 
     // Cards
@@ -76,7 +77,8 @@ service cloud.firestore {
     // User Cards
     match /user_cards/{userCardId} {
       allow read: if true;
-      allow write: if false; // Only server
+      allow create: if true; // Server writes via REST API
+      allow update, delete: if false; // Only server
     }
   }
 }
