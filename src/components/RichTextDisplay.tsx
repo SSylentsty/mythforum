@@ -5,12 +5,41 @@ interface RichTextDisplayProps {
 }
 
 const RichTextDisplay: React.FC<RichTextDisplayProps> = ({ content }) => {
-  // Regex to detect YouTube/Vimeo/Image URLs
   const imageRegex = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp))/gi;
+  const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^& \n]+)/;
+  const mentionRegex = /(@[a-zA-Z0-9_]+)/g;
+
+  const renderTextWithMentions = (text: string) => {
+    return text.split(mentionRegex).map((chunk, i) => {
+      if (chunk.match(mentionRegex)) {
+        return <span key={i} style={{ color: 'var(--accent)', fontWeight: 'bold', backgroundColor: 'rgba(241, 196, 15, 0.1)', padding: '2px 4px', borderRadius: '4px' }}>{chunk}</span>;
+      }
+      return chunk;
+    });
+  };
 
   const renderContent = () => {
     const parts = content.split('\n');
     return parts.map((part, index) => {
+      // Empty line
+      if (part.trim() === '') return <br key={index} />;
+
+      // Blockquote
+      if (part.trim().startsWith('>')) {
+        return (
+          <blockquote key={index} style={{
+            borderLeft: '4px solid var(--accent)',
+            margin: '1rem 0',
+            padding: '0.5rem 1rem',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            fontStyle: 'italic',
+            color: 'var(--text-secondary)'
+          }}>
+            {renderTextWithMentions(part.substring(1).trim())}
+          </blockquote>
+        );
+      }
+
       // Check for image URL
       const imageMatch = part.match(imageRegex);
       if (imageMatch) {
@@ -18,7 +47,7 @@ const RichTextDisplay: React.FC<RichTextDisplayProps> = ({ content }) => {
       }
 
       // Check for YouTube URL
-      const youtubeMatch = part.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^& \n]+)/);
+      const youtubeMatch = part.match(youtubeRegex);
       if (youtubeMatch) {
         const videoId = youtubeMatch[1];
         return (
@@ -34,7 +63,7 @@ const RichTextDisplay: React.FC<RichTextDisplayProps> = ({ content }) => {
         );
       }
 
-      return <p key={index} style={{ marginBottom: '1rem' }}>{part}</p>;
+      return <p key={index} style={{ marginBottom: '1rem', wordBreak: 'break-word' }}>{renderTextWithMentions(part)}</p>;
     });
   };
 

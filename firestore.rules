@@ -15,33 +15,54 @@ service cloud.firestore {
 
     // Threads collection
     match /threads/{threadId} {
-      allow read: if true; // Anyone can read threads
-      allow create: if isSignedIn(); // Logged in users can create
-      allow update: if isSignedIn() && (isAuthor(resource) || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])); // Author can edit, anyone can like (if we use simple increment)
-      allow delete: if isSignedIn() && isAuthor(resource); // Only author can delete
+      allow read: if true;
+      allow create: if isSignedIn();
+      // Users can only update specific fields, not upvotes or isFeatured directly
+      allow update: if isSignedIn() && isAuthor(resource) 
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['upvotes', 'isFeatured', 'authorId']);
+      allow delete: if isSignedIn() && isAuthor(resource);
     }
 
     // Comments collection
     match /comments/{commentId} {
       allow read: if true;
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && isAuthor(resource);
-      allow delete: if isSignedIn() && isAuthor(resource);
-    }
-
-    // Blogs collection
-    match /blogs/{blogId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && isAuthor(resource);
+      allow update: if isSignedIn() && isAuthor(resource)
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['upvotes', 'isSolution', 'authorId']);
       allow delete: if isSignedIn() && isAuthor(resource);
     }
 
     // Users collection
     match /users/{userId} {
-      allow read: if true; // Public profiles
+      allow read: if true; 
       allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isSignedIn() && request.auth.uid == userId;
+      // Client CANNOT update their own XP, level, quality score, or ban status
+      allow update: if isSignedIn() && request.auth.uid == userId
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['xp', 'level', 'qualityScore', 'shadowBanned', 'dailyXpEarned', 'lastXpReset']);
+    }
+
+    // Categories
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if false; // Only admin (or via console) can create/edit categories
+    }
+
+    // XP Logs
+    match /xp_logs/{logId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false; // Only server (Cloudflare Function) writes to xp_logs
+    }
+
+    // Cards
+    match /cards/{cardId} {
+      allow read: if true;
+      allow write: if false; // Only admin
+    }
+
+    // User Cards
+    match /user_cards/{userCardId} {
+      allow read: if true;
+      allow write: if false; // Only server
     }
   }
 }

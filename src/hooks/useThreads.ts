@@ -1,57 +1,72 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment, setDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
-import { XP_REWARDS } from '../utils/xpSystem';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment, where } from 'firebase/firestore';
+import { db, auth } from '../firebase/config';
+import { Thread } from '../types';
 
-export interface Thread {
-  id: string;
-  title: string;
-  content: string;
-  authorId: string;
-  authorName: string;
-  category: string;
-  createdAt: any;
-  likes: number;
-}
-
-export const useThreads = () => {
+export const useThreads = (categoryId: string | null = null) => {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'threads'), orderBy('createdAt', 'desc'));
+    let q = query(collection(db, 'threads'), orderBy('createdAt', 'desc'));
+    
+    if (categoryId) {
+      q = query(collection(db, 'threads'), where('categoryId', '==', categoryId), orderBy('createdAt', 'desc'));
+    }
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const threadsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Thread));
       setThreads(threadsData);
       setLoading(false);
     });
     return unsubscribe;
-  }, []);
+  }, [categoryId]);
 
-  const createThread = async (title: string, content: string, category: string, authorId: string, authorName: string) => {
-    await addDoc(collection(db, 'threads'), {
+  const triggerXpReward = async (action: string, targetId: string) => {
+    try {
+      if (!auth.currentUser) return;
+      const token = await auth.currentUser.getIdToken();
+      await fetch('/api/xp/reward', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ action, targetId })
+      });
+    } catch (err) {
+      console.error('Failed to trigger XP reward:', err);
+    }
+  };
+
+  const createThread = async (title: string, content: string, categoryId: string, authorId: string, authorName: string) => {
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    
+    const docRef = await addDoc(collection(db, 'threads'), {
       title,
+      slug,
       content,
-      category,
+      categoryId,
       authorId,
       authorName,
-      createdAt: serverTimestamp(),
-      likes: 0
+      tags: [],
+      upvotes: 0,
+      isFeatured: false,
+      commentCount: 0,
+      createdAt: serverTimestamp()
     });
 
-    // Reward XP
-    const userRef = doc(db, 'users', authorId);
-    await setDoc(userRef, {
-      xp: increment(XP_REWARDS.CREATE_THREAD),
-      username: authorName // Backfill username if doc is new
-    }, { merge: true });
+    // Call Cloudflare API for XP instead of client-side Firestore update
+    await triggerXpReward('CREATE_THREAD', docRef.id);
   };
 
   const likeThread = async (threadId: string) => {
+    // Note: In real app, you should check if user already liked
     const threadRef = doc(db, 'threads', threadId);
     await updateDoc(threadRef, {
-      likes: increment(1)
+      upvotes: increment(1)
     });
+    await triggerXpReward('RECEIVED_UPVOTE', threadId);
   };
 
   return { threads, loading, createThread, likeThread };

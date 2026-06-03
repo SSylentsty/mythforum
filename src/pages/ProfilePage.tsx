@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useBlogs } from '../hooks/useBlogs';
-import { User as UserIcon, BookOpen, PenTool, Award, Zap } from 'lucide-react';
+import { User as UserIcon, BookOpen, PenTool, Award, Zap, Package } from 'lucide-react';
 import RichTextDisplay from '../components/RichTextDisplay';
 import { getLevelInfo, LEVELS } from '../utils/xpSystem';
+import CardInventory from '../components/CardInventory';
 
 const ProfilePage: React.FC = () => {
   const { user, userData } = useAuth();
   const { blogs, loading, createBlog } = useBlogs(user?.uid);
   const [showForm, setShowForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chronologies' | 'mythic'>('chronologies');
+  const [activeTab, setActiveTab] = useState<'chronologies' | 'mythic' | 'inventory'>('chronologies');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
 
@@ -68,7 +69,7 @@ const ProfilePage: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border-color)' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border-color)', overflowX: 'auto' }}>
         <button 
           onClick={() => setActiveTab('chronologies')}
           style={{ 
@@ -80,10 +81,13 @@ const ProfilePage: React.FC = () => {
             cursor: 'pointer',
             fontWeight: 'bold',
             textTransform: 'uppercase',
-            fontSize: '0.8rem'
+            fontSize: '0.8rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
           }}
         >
-          Chronologies
+          <BookOpen size={16} /> Chronologies
         </button>
         <button 
           onClick={() => setActiveTab('mythic')}
@@ -96,10 +100,32 @@ const ProfilePage: React.FC = () => {
             cursor: 'pointer',
             fontWeight: 'bold',
             textTransform: 'uppercase',
-            fontSize: '0.8rem'
+            fontSize: '0.8rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
           }}
         >
-          Mythic Progress
+          <Award size={16} /> Mythic Progress
+        </button>
+        <button 
+          onClick={() => setActiveTab('inventory')}
+          style={{ 
+            padding: '1rem', 
+            background: 'none', 
+            border: 'none', 
+            color: activeTab === 'inventory' ? 'var(--accent)' : 'var(--text-secondary)',
+            borderBottom: activeTab === 'inventory' ? '2px solid var(--accent)' : 'none',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            textTransform: 'uppercase',
+            fontSize: '0.8rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}
+        >
+          <Package size={16} /> Inventory
         </button>
       </div>
 
@@ -160,6 +186,8 @@ const ProfilePage: React.FC = () => {
             ))}
           </div>
         </div>
+      ) : activeTab === 'inventory' ? (
+        <CardInventory />
       ) : (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
