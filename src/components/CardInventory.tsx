@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import { useAuth } from '../context/AuthContext';
 import type { Card as CardType, UserCard } from '../types';
 import DropModal from './DropModal';
 
@@ -11,12 +14,6 @@ const MOCK_AVAILABLE_CARDS: CardType[] = [
   { id: 'c5', name: 'Erlik Han', description: 'Yeraltı aleminin hakimi.', rarity: 'EPIC', imageUrl: '🔥', dropChance: 0.15 },
   { id: 'c6', name: 'Centaur', description: 'Yarı insan yarı at.', rarity: 'COMMON', imageUrl: '🐎', dropChance: 0.50 },
   { id: 'c7', name: 'Valkyrie', description: 'Savaş alanında ölenleri seçen bakireler.', rarity: 'RARE', imageUrl: '🛡️', dropChance: 0.30 },
-];
-
-const MOCK_USER_INVENTORY: UserCard[] = [
-  { id: 'u1', userId: 'me', cardId: 'c1', quantity: 1, acquiredAt: Date.now() },
-  { id: 'u2', userId: 'me', cardId: 'c6', quantity: 4, acquiredAt: Date.now() },
-  { id: 'u3', userId: 'me', cardId: 'c7', quantity: 2, acquiredAt: Date.now() },
 ];
 
 const RARITY_COLORS = {
@@ -142,16 +139,22 @@ const CardDisplay: React.FC<{ card: CardType, quantity: number }> = ({ card, qua
 };
 
 const CardInventory: React.FC = () => {
-  const [userCards, setUserCards] = useState<UserCard[]>(() => {
-    const saved = localStorage.getItem('mythforum_cards');
-    if (saved) return JSON.parse(saved);
-    return MOCK_USER_INVENTORY;
-  });
+  const { user } = useAuth();
+  const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [showDrop, setShowDrop] = useState<CardType | null>(null);
 
   React.useEffect(() => {
-    localStorage.setItem('mythforum_cards', JSON.stringify(userCards));
-  }, [userCards]);
+    if (!user) {
+      setUserCards([]);
+      return;
+    }
+    const q = query(collection(db, 'user_cards'), where('userId', '==', user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const cards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserCard));
+      setUserCards(cards);
+    });
+    return unsubscribe;
+  }, [user]);
 
   React.useEffect(() => {
     if (!document.getElementById('card-animations')) {
@@ -173,18 +176,21 @@ const CardInventory: React.FC = () => {
   };
 
   const handleCloseDrop = () => {
-    if (showDrop) {
-      // Add to inventory
-      setUserCards(prev => {
-        const existing = prev.find(c => c.cardId === showDrop.id);
-        if (existing) {
-          return prev.map(c => c.id === existing.id ? { ...c, quantity: c.quantity + 1 } : c);
-        }
-        return [...prev, { id: Date.now().toString(), userId: 'me', cardId: showDrop.id, quantity: 1, acquiredAt: Date.now() }];
-      });
-    }
     setShowDrop(null);
   };
+
+  // Group cards by cardId and sum quantity
+  const groupedCards = React.useMemo(() => {
+    const groups: Record<string, UserCard> = {};
+    for (const card of userCards) {
+      if (groups[card.cardId]) {
+        groups[card.cardId].quantity += card.quantity || 1;
+      } else {
+        groups[card.cardId] = { ...card, quantity: card.quantity || 1 };
+      }
+    }
+    return Object.values(groups);
+  }, [userCards]);
 
   return (
     <div>
@@ -199,20 +205,20 @@ const CardInventory: React.FC = () => {
             🎁 Test Drop (Kutu Aç)
           </button>
           <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-            Toplam: {userCards.reduce((acc, curr) => acc + curr.quantity, 0)} Kart
+            Toplam: {groupedCards.reduce((acc, curr) => acc + curr.quantity, 0)} Kart
           </span>
         </div>
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', justifyContent: 'center' }}>
-        {userCards.map(userCard => {
+        {groupedCards.map(userCard => {
           const cardDef = MOCK_AVAILABLE_CARDS.find(c => c.id === userCard.cardId);
           if (!cardDef) return null;
           return <CardDisplay key={userCard.id} card={cardDef} quantity={userCard.quantity} />;
         })}
       </div>
 
-      {userCards.length === 0 && (
+      {groupedCards.length === 0 && (
         <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-secondary)' }}>
           <p>Henüz hiç kart kazanmadınız. Konu açarak ve yorum yaparak kart düşürme şansı yakalayın!</p>
         </div>

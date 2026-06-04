@@ -22,16 +22,20 @@ export const useComments = (threadId: string) => {
     return unsubscribe;
   }, [threadId]);
 
-  const triggerXpReward = async (action: string) => {
+  const triggerXpReward = async (action: string, targetId: string = '') => {
     try {
       if (!auth.currentUser) return;
-      const xpRules = { CREATE_THREAD: 10, ADD_COMMENT: 2, RECEIVED_UPVOTE: 5, MARKED_SOLUTION: 20 };
-      const amount = xpRules[action as keyof typeof xpRules] || 0;
-      if (amount > 0) {
-        const userRef = doc(db, 'users', auth.currentUser.uid);
-        await updateDoc(userRef, {
-          xp: increment(amount)
-        });
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch('/api/xp/reward', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ action, targetId })
+      });
+      if (!res.ok) {
+        console.error('Failed to trigger XP reward:', await res.text());
       }
     } catch (err) {
       console.error('Failed to trigger XP reward:', err);
@@ -66,13 +70,13 @@ export const useComments = (threadId: string) => {
   const likeComment = async (commentId: string) => {
     const commentRef = doc(db, 'comments', commentId);
     await updateDoc(commentRef, { upvotes: increment(1) });
-    await triggerXpReward('RECEIVED_UPVOTE');
+    await triggerXpReward('RECEIVED_UPVOTE', commentId);
   };
 
   const markAsSolution = async (commentId: string) => {
     const commentRef = doc(db, 'comments', commentId);
     await updateDoc(commentRef, { isSolution: true });
-    await triggerXpReward('MARKED_SOLUTION');
+    await triggerXpReward('MARKED_SOLUTION', commentId);
   }
 
   return { comments, loading, addComment, likeComment, markAsSolution };
