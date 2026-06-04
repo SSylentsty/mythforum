@@ -22,7 +22,7 @@ export const useComments = (threadId: string) => {
     return unsubscribe;
   }, [threadId]);
 
-  const triggerXpReward = async (action: string, targetId: string = '') => {
+  const triggerXpReward = async (action: string) => {
     try {
       if (!auth.currentUser) return;
       const uid = auth.currentUser.uid;
@@ -87,13 +87,13 @@ export const useComments = (threadId: string) => {
   const likeComment = async (commentId: string) => {
     const commentRef = doc(db, 'comments', commentId);
     await updateDoc(commentRef, { upvotes: increment(1) });
-    await triggerXpReward('RECEIVED_UPVOTE', commentId);
+    await triggerXpReward('RECEIVED_UPVOTE');
   };
 
   const markAsSolution = async (commentId: string) => {
     const commentRef = doc(db, 'comments', commentId);
     await updateDoc(commentRef, { isSolution: true });
-    await triggerXpReward('MARKED_SOLUTION', commentId);
+    await triggerXpReward('MARKED_SOLUTION');
   }
 
   return { comments, loading, addComment, likeComment, markAsSolution };
