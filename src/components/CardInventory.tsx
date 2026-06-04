@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
@@ -143,7 +143,7 @@ const CardInventory: React.FC = () => {
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [showDrop, setShowDrop] = useState<CardType | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!user) {
       setUserCards([]);
       return;
@@ -156,7 +156,7 @@ const CardInventory: React.FC = () => {
     return unsubscribe;
   }, [user]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!document.getElementById('card-animations')) {
       const style = document.createElement('style');
       style.id = 'card-animations';
@@ -180,7 +180,7 @@ const CardInventory: React.FC = () => {
   };
 
   // Group cards by cardId and sum quantity
-  const groupedCards = React.useMemo(() => {
+  const groupedCards = useMemo(() => {
     const groups: Record<string, UserCard> = {};
     for (const card of userCards) {
       if (groups[card.cardId]) {
