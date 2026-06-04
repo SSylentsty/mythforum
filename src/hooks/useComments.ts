@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
 import type { Comment } from '../types';
 import { containsProfanity, handleProfanityViolation } from '../utils/profanityFilter';
@@ -25,17 +25,34 @@ export const useComments = (threadId: string) => {
   const triggerXpReward = async (action: string, targetId: string = '') => {
     try {
       if (!auth.currentUser) return;
-      const token = await auth.currentUser.getIdToken();
-      const res = await fetch('/api/xp/reward', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ action, targetId })
-      });
-      if (!res.ok) {
-        console.error('Failed to trigger XP reward:', await res.text());
+      const uid = auth.currentUser.uid;
+      
+      const xpRules: Record<string, number> = { 
+        CREATE_THREAD: 50, 
+        ADD_COMMENT: 30, 
+        RECEIVED_UPVOTE: 5, 
+        MARKED_SOLUTION: 20 
+      };
+      const amount = xpRules[action] || 0;
+      
+      if (amount > 0) {
+        const userRef = doc(db, 'users', uid);
+        await setDoc(userRef, { xp: increment(amount) }, { merge: true });
+        
+        let dropChance = 0;
+        if (action === 'CREATE_THREAD') dropChance = 0.50;
+        else if (action === 'ADD_COMMENT') dropChance = 0.30;
+
+        if (dropChance > 0 && Math.random() < dropChance) {
+          const cardIds = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
+          const randomCardId = cardIds[Math.floor(Math.random() * cardIds.length)];
+          await addDoc(collection(db, 'user_cards'), {
+            userId: uid,
+            cardId: randomCardId,
+            quantity: 1,
+            acquiredAt: Date.now()
+          });
+        }
       }
     } catch (err) {
       console.error('Failed to trigger XP reward:', err);
